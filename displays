@@ -1,20 +1,20 @@
 #!/bin/sh
 
-# 使用法を表示する関数
+# Function to display usage
 usage() {
     echo "Usage: displays [save|reset]"
     exit 1
 }
 
-# 保存機能
+# Save function
 save_display_settings() {
-    # displayplacer list の出力をホームディレクトリに保存
+    # Save the output of displayplacer list to a file in the home directory
     displayplacer list > ~/displayplacer_output.txt
 
-    # ファイルの内容を変数に格納
+    # Store the contents of the file in a variable
     output=$(cat ~/displayplacer_output.txt)
 
-    # 出力からディスプレイの情報を抽出し、設定コマンドを生成する
+    # Extract display information from the output and generate the setting command
     commands=$(echo "$output" | awk '
       BEGIN { id=""; width=""; height=""; hz=""; x=""; y=""; found_mode=0; }
       /Persistent screen id:/ {
@@ -51,29 +51,29 @@ save_display_settings() {
       }
     ')
 
-    # res:res: を res: に置換する
+    # Replace res:res: with res:
     commands=$(echo "$commands" | sed 's/res:res:/res:/g')
 
-    # ~/.displays ディレクトリを作成
+    # Create the ~/.displays directory
     mkdir -p ~/.displays
 
-    # 生成されたコマンドを ~/.displays/current に保存
+    # Save the generated command to ~/.displays/current
     echo "$commands" > ~/.displays/current
 
-    # 一時ファイルを削除
+    # Delete the temporary file
     rm -fr ~/displayplacer_output.txt
 
     echo "Display settings saved to ~/.displays/current"
 }
 
-# リセット機能
+# Reset function
 reset_display_settings() {
     if [ ! -f ~/.displays/current ]; then
         echo "No saved display settings found in ~/.displays/current"
         exit 1
     fi
 
-    # 保存された設定を読み込み実行
+    # Read and execute the saved settings
     while IFS= read -r line; do
         eval "$line"
     done < ~/.displays/current
@@ -81,7 +81,7 @@ reset_display_settings() {
     echo "Display settings restored from ~/.displays/current"
 }
 
-# 引数の処理
+# Argument processing
 if [ $# -ne 1 ]; then
     usage
 fi
