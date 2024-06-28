@@ -1,0 +1,99 @@
+#!/bin/sh
+
+# 使用法を表示する関数
+usage() {
+    echo "Usage: displays [save|reset]"
+    exit 1
+}
+
+# 保存機能
+save_display_settings() {
+    # displayplacer list の出力をホームディレクトリに保存
+    displayplacer list > ~/displayplacer_output.txt
+
+    # ファイルの内容を変数に格納
+    output=$(cat ~/displayplacer_output.txt)
+
+    # 出力からディスプレイの情報を抽出し、設定コマンドを生成する
+    commands=$(echo "$output" | awk '
+      BEGIN { id=""; width=""; height=""; hz=""; x=""; y=""; found_mode=0; }
+      /Persistent screen id:/ {
+        if (id != "" && found_mode) {
+          print "displayplacer \"id:" id " res:" width "x" height " hz:" hz " origin:(" x "," y ")\""
+        }
+        id=$4; width=""; height=""; hz=""; x=""; y=""; found_mode=0;
+      }
+      /Resolution:/ {
+        split($2, res, "x");
+        width=res[1];
+        height=res[2];
+      }
+      /Hertz:/ { hz=$2; }
+      /Origin:/ {
+        sub(/.*\(/, "", $2);
+        split($2, coords, ",");
+        x=coords[1];
+        sub(/\)/, "", coords[2]);
+        y=coords[2];
+      }
+      /mode [0-9]+:/ {
+        if ($0 ~ /current mode/) {
+          split($3, res, "x");
+          width=res[1];
+          height=res[2];
+          found_mode=1;
+        }
+      }
+      END {
+        if (id != "" && found_mode) {
+          print "displayplacer \"id:" id " res:" width "x" height " hz:" hz " origin:(" x "," y ")\""
+        }
+      }
+    ')
+
+    # res:res: を res: に置換する
+    commands=$(echo "$commands" | sed 's/res:res:/res:/g')
+
+    # ~/.displays ディレクトリを作成
+    mkdir -p ~/.displays
+
+    # 生成されたコマンドを ~/.displays/current に保存
+    echo "$commands" > ~/.displays/current
+
+    # 一時ファイルを削除
+    rm -fr ~/displayplacer_output.txt
+
+    echo "Display settings saved to ~/.displays/current"
+}
+
+# リセット機能
+reset_display_settings() {
+    if [ ! -f ~/.displays/current ]; then
+        echo "No saved display settings found in ~/.displays/current"
+        exit 1
+    fi
+
+    # 保存された設定を読み込み実行
+    while IFS= read -r line; do
+        eval "$line"
+    done < ~/.displays/current
+
+    echo "Display settings restored from ~/.displays/current"
+}
+
+# 引数の処理
+if [ $# -ne 1 ]; then
+    usage
+fi
+
+case "$1" in
+    save)
+        save_display_settings
+        ;;
+    reset)
+        reset_display_settings
+        ;;
+    *)
+        usage
+        ;;
+esac
